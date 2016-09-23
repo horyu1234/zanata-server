@@ -76,7 +76,8 @@ timestamps {
       node('Fedora') {
         ansicolor {
           unstash 'workspace'
-          sh """./mvnw surefire:test
+          sh """./mvnw surefire:test \
+                       -pl zanata-war -am \
                        --batch-mode \
                        --settings .travis-settings.xml \
                        -Dmaven.test.failure.ignore \
