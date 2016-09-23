@@ -3,10 +3,15 @@ import { connect } from 'react-redux'
 import {Button, InputGroup, FormGroup, FormControl} from 'react-bootstrap'
 import Helmet from 'react-helmet'
 import {Page, ScrollView, View, LoaderText} from 'zanata-ui'
+import { debounce, find } from 'lodash'
+import Entry from './Entry'
 
 import {
   initialLoad,
   handleDelete,
+  handleUpdatePageSize,
+  handleUpdateSort,
+  handleUpdateSearch,
   pageSizeOption,
   sortOption
 } from '../../actions/languages'
@@ -33,9 +38,18 @@ class Languages extends Component {
 
   render () {
     const {
+      searchText,
+      page,
+      size,
+      sort,
       results,
+      totalCount,
       permission,
-      loading
+      loading,
+      handleDelete,
+      handleOnUpdatePageSize,
+      handleOnUpdateSort,
+      handleOnUpdateSearch
     } = this.props
 
     return (
@@ -48,7 +62,7 @@ class Languages extends Component {
                 <div className='contentx clearfix center-block'>
                   <h2>
                     Languages {!loading &&
-                      <span className='badge'>{results.length}</span>}
+                      <span className='badge'>{totalCount}</span>}
                   </h2>
                   {permission.canAddLocale &&
                     <Button className='btn-primary'>
@@ -65,7 +79,9 @@ class Languages extends Component {
                          col-lg-7'>
                           <FormGroup>
                             <InputGroup>
-                              <FormControl type='text' />
+                              <FormControl type='text'
+                                defaultValue={searchText}
+                                onChange={handleOnUpdateSearch} />
                               <InputGroup.Button>
                                 <Button>
                                   <i className='fa fa-search'></i>&nbsp;
@@ -77,10 +93,11 @@ class Languages extends Component {
                         <div className='sort-items col-xs-6 col-sm-4 col-md-4
                           col-lg-3'>
                           <FormControl componentClass='select'
-                            className='pull-right' id='sort-options'>
-                            {sortOption.map(function (value, i) {
-                              return <option key={i} value={value}>
-                                {value}</option>
+                            className='pull-right' id='sort-options'
+                            onChange={handleOnUpdateSort} value={sort.value}>
+                            {sortOption.map(function (sort, i) {
+                              return <option key={i} value={sort.value}>
+                                {sort.display}</option>
                             })}
                           </FormControl>
                         </div>
@@ -88,6 +105,7 @@ class Languages extends Component {
                           col-lg-2'>
                           <span>Show</span>
                           <FormControl inline componentClass='select'
+                            onChange={handleOnUpdatePageSize} value={size}
                             id='page-size-options'>
                             {pageSizeOption.map(function (value, i) {
                               return <option key={i} value={value}>
@@ -105,7 +123,7 @@ class Languages extends Component {
                                 </span>
                               </li>
                               <li>
-                                <span>1
+                                <span>{page}
                                   <span className='sr-only'>(current)</span>
                                 </span>
                               </li>
@@ -171,44 +189,9 @@ class Languages extends Component {
                         </thead>
                         <tbody>
                         {results.map(function (value, i) {
-                          return (
-                            <tr key={i}>
-                              <td>
-                                <a href=''>
-                                  <span className='Pend(rq)'>
-                                    {value.displayName}
-                                  </span>
-                                  {value.enabledByDefault &&
-                                    <span className='greentext badge'>
-                                      DEFAULT
-                                    </span>
-                                  }
-                                  {!value.enabled &&
-                                    <span className='dis badge'>
-                                      DISABLED
-                                    </span>
-                                  }
-                                </a>
-                                <br />
-                                <span className='langcode'>
-                                  {value.localeId} [{value.nativeName}]
-                                </span>
-                              </td>
-                              <td>
-                                <span>
-                                  <i className='fa fa-user'></i>
-                                  {value.membersCount}
-                                </span>
-                              </td>
-                              {permission.canDeleteLocale &&
-                                <td>
-                                  <Button bsSize='small'>
-                                    <i className='fa fa-times'></i> Delete
-                                  </Button>
-                                </td>
-                              }
-                            </tr>
-                          )
+                          return <Entry key={i} locale={value}
+                            permission={permission}
+                            handleDelete={handleDelete} />
                         })}
                         </tbody>
                       </table>
@@ -224,36 +207,65 @@ class Languages extends Component {
 }
 
 Languages.propTypes = {
-  searchText: PropTypes.string,
   permission: PropTypes.object,
+  searchText: PropTypes.string,
   page: PropTypes.number,
   size: PropTypes.number,
-  sort: PropTypes.string,
+  sort: PropTypes.object,
   results: PropTypes.array,
+  totalCount: PropTypes.number,
   loading: PropTypes.bool,
   handleInitLoad: PropTypes.func,
-  handleDelete: PropTypes.func
+  handleDelete: PropTypes.func,
+  handleOnUpdatePageSize: PropTypes.func,
+  handleOnUpdateSort: PropTypes.func,
+  handleOnUpdateSearch: PropTypes.func
 }
 
 const mapStateToProps = (state) => {
+  let urlSort = state.routing.location.query.sort
+  if (urlSort) {
+    urlSort = find(sortOption, function (sort) {
+      return sort.value === urlSort
+    })
+    if (!urlSort) {
+      urlSort = sortOption[0]
+    }
+  } else {
+    urlSort = sortOption[0]
+  }
+
   return {
-    searchText: state.routing.location.query.q,
-    page: parseInt(state.routing.location.query.page),
-    size: parseInt(state.routing.location.query.size),
-    sort: state.routing.location.query.sort,
-    results: state.languages.locales,
+    searchText: state.routing.location.query.search || '',
+    page: parseInt(state.routing.location.query.page) || 1,
+    size: parseInt(state.routing.location.query.size) || pageSizeOption[0],
+    sort: urlSort,
+    results: state.languages.locales.results,
+    totalCount: state.languages.locales.totalCount,
     loading: state.languages.loading,
     permission: state.languages.permission
   }
 }
 
 const mapDispatchToProps = (dispatch) => {
+  const updateSearch = debounce((val) =>
+    dispatch(handleUpdateSearch(val)), 200)
+
   return {
     handleInitLoad: () => {
       dispatch(initialLoad())
     },
-    handleDelete: (event) => {
-      handleDelete(event.target.value || '')
+    handleDelete: (localeId) => {
+      dispatch(handleDelete(localeId))
+    },
+    handleOnUpdatePageSize: (event) => {
+      dispatch(handleUpdatePageSize(event.target.value || ''))
+    },
+    handleOnUpdateSort: (event) => {
+      dispatch(handleUpdateSort(event.target.value || ''))
+    },
+    handleOnUpdateSearch: (event) => {
+      updateSearch(event.target.value || '')
     }
   }
 }

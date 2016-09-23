@@ -1,5 +1,6 @@
 import { CALL_API } from 'redux-api-middleware'
 import { includes, isEmpty } from 'lodash'
+import { replaceRouteQuery } from '../utils/RoutingHelpers'
 import {
   getJsonHeaders,
   buildAPIRequest,
@@ -17,25 +18,26 @@ export const LANGUAGE_PERMISSION_SUCCESS = 'LANGUAGE_PERMISSION_SUCCESS'
 export const LANGUAGE_PERMISSION_FAILURE = 'LANGUAGE_PERMISSION_FAILURE'
 
 export const pageSizeOption = [10, 20, 50, 100]
-export const sortOption = ['Alphabetical', 'Locale', 'Members']
+// export const sortOption = ['Locale', 'Members']
+export const sortOption = [
+  {display: 'Locale', value: 'localeId'},
+  {display: 'Members', value: 'member'}
+]
 
 const getLocalesList = (state) => {
-  // TODO: handle sort, filter, page, size
-
   const query = state.routing.location.query
-  console.info(query)
   let queries = []
-  if (query.q) {
-    queries.push('q=' + query.q)
+  if (query.search) {
+    queries.push('filter=' + query.search)
   }
   if (query.page) {
     queries.push('page=' + query.page)
   }
   if (query.size) {
-    queries.push('size=' + query.size)
+    queries.push('sizePerPage=' + query.size)
   }
   if (query.sort) {
-    queries.push('sort=' + query.sort)
+    queries.push('sort=' + query.sort.toLowerCase())
   }
   const endpoint = window.config.baseUrl + window.config.apiRoot + '/locales' +
     (!isEmpty(queries) ? '?' + queries.join('&') : '')
@@ -121,6 +123,33 @@ const getUserInfo = (dispatch) => {
 export const initialLoad = () => {
   return (dispatch, getState) => {
     dispatch(getUserInfo(dispatch))
+  }
+}
+
+export const handleUpdatePageSize = (pageSize) => {
+  return (dispatch, getState) => {
+    replaceRouteQuery(getState().routing.location, {
+      size: pageSize
+    })
+    dispatch(getLocalesList(getState()))
+  }
+}
+
+export const handleUpdateSort = (sort) => {
+  return (dispatch, getState) => {
+    replaceRouteQuery(getState().routing.location, {
+      sort: sort
+    })
+    dispatch(getLocalesList(getState()))
+  }
+}
+
+export const handleUpdateSearch = (search) => {
+  return (dispatch, getState) => {
+    replaceRouteQuery(getState().routing.location, {
+      search: search
+    })
+    dispatch(getLocalesList(getState()))
   }
 }
 

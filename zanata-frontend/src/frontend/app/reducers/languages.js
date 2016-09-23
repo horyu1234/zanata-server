@@ -102,8 +102,11 @@ export default handleActions({
   }
 },
   {
-    loading: false,
-    locales: [],
+    loading: true,
+    locales: {
+      results: [],
+      totalCount: 0
+    },
     permission: {
       canDeleteLocale: false,
       canAddLocale: false

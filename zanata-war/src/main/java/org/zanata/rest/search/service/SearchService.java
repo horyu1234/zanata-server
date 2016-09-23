@@ -203,9 +203,9 @@ public class SearchService {
         @DefaultValue("20") @QueryParam("sizePerPage") int sizePerPage) {
 
         int offset = (validatePage(page) - 1) * validatePageSize(sizePerPage);
-        int totalCount = localeDAO.countByNameLike(query);
+        int totalCount = localeDAO.countByFind(query, false);
         List<SearchResult> results = localeDAO
-                .searchByName(query, validatePageSize(sizePerPage), offset)
+                .find(offset, validatePageSize(sizePerPage), query, null, false)
                 .stream()
             .map(l -> {
                 LanguageTeamSearchResult result =
