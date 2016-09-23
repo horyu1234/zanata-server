@@ -61,7 +61,8 @@ timestamps {
                      -DskipArqTests \
 -DexcludeFrontend \
         """
-        archiveArtifacts '**/target/*.jar, **/target/*.war'
+        archiveArtifacts '**/target/*.war'
+//        archiveArtifacts '**/target/*.jar, **/target/*.war'
       }
 
       stage('stash') {
@@ -106,6 +107,12 @@ timestamps {
   }
 }
 
+def archiveIfUnstable(pattern) {
+  // if tests have failed currentBuild.result will be 'UNSTABLE'
+  if (currentBuild.result != null) {
+      step([$class: 'ArtifactArchiver', artifacts: pattern])
+  }
+}
 def archiveArtifacts(pattern) {
   step([$class: 'ArtifactArchiver', artifacts: pattern, fingerprint: true, onlyIfSuccessful: true])
 }
@@ -121,11 +128,13 @@ def integrationTests(def appserver) {
                    -DallFuncTests \
                    -Dmaven.test.failure.ignore \
                    -Dmaven.main.skip \
-                   -Dmaven.test.skip \
                    -Dgwt.compiler.skip \
+                   -Dmaven.war.skip \
                    -DexcludeFrontend \
       """
+      // -Dmaven.war.skip (but we might need zanata-test-war)
     }
   }
   junit '**/target/failsafe-reports/TEST-*.xml'
+  archiveIfUnstable '*/target/**/*.log,*/target/screenshots/**,**/target/site/jacoco/**,**/target/site/xref/**'
 }
