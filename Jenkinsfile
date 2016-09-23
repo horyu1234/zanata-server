@@ -57,6 +57,7 @@ timestamps {
                      -DstaticAnalysis=false \
                      -Dchromefirefox \
                      -DskipTests \
+                     -DskipFuncTests \
         """
         archiveArtifacts artifacts: '**/target/*.jar, **/target/*.war', fingerprint: true
       }
@@ -71,6 +72,7 @@ timestamps {
                      -Dmaven.test.skip \
                      -Dgwt.compiler.skip \
                      -DexcludeFrontend \
+                     -DskipFuncTests \
         """
         junit '**/target/surefire-reports/TEST-*.xml'
       }
@@ -84,6 +86,7 @@ timestamps {
                          --settings .travis-settings.xml \
                          -DstaticAnalysis=false \
                          -Dappserver=wildfly8 \
+                         -DallFuncTests \
                          -Dmaven.test.failure.ignore \
                          -Dmaven.main.skip \
                          -Dmaven.test.skip \
