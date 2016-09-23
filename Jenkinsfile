@@ -58,46 +58,80 @@ timestamps {
                      -Dchromefirefox \
                      -DskipTests \
                      -DskipFuncTests \
+                     -DskipArqTests \
+-DexcludeFrontend \
         """
-        archiveArtifacts artifacts: '**/target/*.jar, **/target/*.war', fingerprint: true
+        archiveArtifacts '**/target/*.jar, **/target/*.war'
       }
 
-      stage('Unit tests') {
-        sh """./mvnw test \
-                     --batch-mode \
-                     --settings .travis-settings.xml \
-                     -DstaticAnalysis \
-                     -Dmaven.test.failure.ignore \
-                     -Dmaven.main.skip \
-                     -Dmaven.test.skip \
-                     -Dgwt.compiler.skip \
-                     -DexcludeFrontend \
-                     -DskipFuncTests \
-        """
-        junit '**/target/surefire-reports/TEST-*.xml'
+      stage('stash') {
+        stash name: 'workspace', includes: '**'
       }
-
-      stage('Integration tests') {
-        xvfb {
-          withPorts {
-            // Run the maven build
-            sh """./mvnw verify \
-                         --batch-mode \
-                         --settings .travis-settings.xml \
-                         -DstaticAnalysis=false \
-                         -Dappserver=wildfly8 \
-                         -DallFuncTests \
-                         -Dmaven.test.failure.ignore \
-                         -Dmaven.main.skip \
-                         -Dmaven.test.skip \
-                         -Dgwt.compiler.skip \
-                         -DexcludeFrontend \
-            """
-          }
-        }
-        junit '**/target/failsafe-reports/TEST-*.xml'
-      }
-
     }
   }
+
+  stage('Parallel tests') {
+    def tasks = [:]
+    tasks['Unit tests'] = {
+      node('Fedora') {
+        ansicolor {
+          unstash 'workspace'
+          sh """./mvnw test \
+                       --batch-mode \
+                       --settings .travis-settings.xml \
+                       -DstaticAnalysis \
+                       -Dmaven.test.failure.ignore \
+                       -Dmaven.main.skip \
+                       -Dmaven.test.skip \
+                       -Dgwt.compiler.skip \
+                       -DexcludeFrontend \
+                       -DskipFuncTests \
+                       -DskipArqTests \
+          """
+          junit '**/target/surefire-reports/TEST-*.xml'
+        }
+      }
+    }
+    tasks['Integration tests: wildfly'] = {
+      node('Fedora') {
+        ansicolor {
+          unstash 'workspace'
+          integrationTests('wildfly8')
+        }
+      }
+    }
+    tasks['Integration tests: jbosseap'] = {
+      node('Fedora') {
+        ansicolor {
+          unstash 'workspace'
+          integrationTests('jbosseap6')
+        }
+      }
+    }
+    parallel tasks
+  }
+}
+
+def archiveArtifacts(pattern) {
+  step([$class: 'ArtifactArchiver', artifacts: pattern, fingerprint: true, onlyIfSuccessful: true])
+}
+def integrationTests(def appserver) {
+  xvfb {
+    withPorts {
+      // Run the maven build
+      sh """./mvnw verify \
+                   --batch-mode \
+                   --settings .travis-settings.xml \
+                   -DstaticAnalysis=false \
+                   -Dappserver=$appserver \
+                   -DallFuncTests \
+                   -Dmaven.test.failure.ignore \
+                   -Dmaven.main.skip \
+                   -Dmaven.test.skip \
+                   -Dgwt.compiler.skip \
+                   -DexcludeFrontend \
+      """
+    }
+  }
+  junit '**/target/failsafe-reports/TEST-*.xml'
 }
