@@ -76,17 +76,10 @@ timestamps {
       node('Fedora') {
         ansicolor {
           unstash 'workspace'
-          sh """./mvnw test \
+          sh """./mvnw surefire:test
                        --batch-mode \
                        --settings .travis-settings.xml \
-                       -DstaticAnalysis \
                        -Dmaven.test.failure.ignore \
-                       -Dmaven.main.skip \
-                       -Dmaven.test.skip \
-                       -Dgwt.compiler.skip \
-                       -DexcludeFrontend \
-                       -DskipFuncTests \
-                       -DskipArqTests \
           """
           junit '**/target/surefire-reports/TEST-*.xml'
         }

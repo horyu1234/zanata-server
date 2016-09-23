@@ -31,8 +31,6 @@
     <maven.javadoc.version>2.9.1</maven.javadoc.version>
     <surefire.useFile>false</surefire.useFile>
     <surefire.version>2.19.1</surefire.version>
-    <!-- Applies to surefire and failsafe (if enabled) -->
-    <failIfNoTests>true</failIfNoTests>
 
     <deltaspike.version>1.5.4</deltaspike.version>
     <cdi.runtime>runtime</cdi.runtime>
@@ -1568,6 +1566,14 @@
           <transDir>.</transDir>
           <!-- only one translation file has been prepared so far -->
           <includes>zanata-war/src/main/resources/messages.properties</includes>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <useFile>true</useFile>
+          <failIfNoTests>false</failIfNoTests>
         </configuration>
       </plugin>
 
