@@ -12,6 +12,13 @@ def void xvfb(Closure<Void> wrapped) {
   }
 }
 
+def void withPorts(Closure<Void> wrapped) {
+  def ports = sh(script: 'etc/scripts/allocate-jboss-ports', returnStdout: true)
+  withEnv(ports.trim().readLines()) {
+    wrapped()
+  }
+}
+
 
 timestamps {
   node('Fedora') {
@@ -41,23 +48,53 @@ timestamps {
       //   mysql 5.6, functional tests (on wildfly)
       //   and (later) mariadb 10 functional tests (on wildfly)
 
-      stage('Build, unit tests, integration tests') {
+
+      stage('Build') {
+        sh """./mvnw clean package \
+                     --batch-mode \
+                     --settings .travis-settings.xml \
+                     --update-snapshots \
+                     -DstaticAnalysis=false \
+                     -Dchromefirefox \
+                     -DskipTests \
+        """
+        archiveArtifacts artifacts: '**/target/*.jar, **/target/*.war', fingerprint: true
+      }
+
+      stage('Unit tests') {
+        sh """./mvnw test \
+                     --batch-mode \
+                     --settings .travis-settings.xml \
+                     -DstaticAnalysis \
+                     -Dmaven.test.failure.ignore \
+                     -Dmaven.main.skip \
+                     -Dmaven.test.skip \
+                     -Dgwt.compiler.skip \
+                     -DexcludeFrontend \
+        """
+        junit '**/target/surefire-reports/TEST-*.xml'
+      }
+
+      stage('Integration tests') {
         xvfb {
-          def ports = sh(script: 'etc/scripts/allocate-jboss-ports', returnStdout: true)
-          withEnv(ports.trim().readLines()) {
+          withPorts {
             // Run the maven build
-            sh """./mvnw clean verify \
+            sh """./mvnw verify \
                          --batch-mode \
                          --settings .travis-settings.xml \
-                         --update-snapshots \
-                         -DstaticAnalysis \
-                         -Dchromefirefox \
+                         -DstaticAnalysis=false \
                          -Dappserver=wildfly8 \
-                         -Dmaven.test.redirectTestOutputToFile \
+                         -Dmaven.test.failure.ignore \
+                         -Dmaven.main.skip \
+                         -Dmaven.test.skip \
+                         -Dgwt.compiler.skip \
+                         -DexcludeFrontend \
             """
           }
         }
+        junit '**/target/failsafe-reports/TEST-*.xml'
       }
+
     }
   }
 }
